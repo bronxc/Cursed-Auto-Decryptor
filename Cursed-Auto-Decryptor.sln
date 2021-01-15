@@ -1,0 +1,25 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 16
+VisualStudioVersion = 16.0.30804.86
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Cursed-Auto-Decryptor", "Cursed-Auto-Decryptor\Cursed-Auto-Decryptor.csproj", "{B67BC0F7-832E-4BC7-A71B-26ABD98C993D}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{B67BC0F7-832E-4BC7-A71B-26ABD98C993D}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{B67BC0F7-832E-4BC7-A71B-26ABD98C993D}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{B67BC0F7-832E-4BC7-A71B-26ABD98C993D}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{B67BC0F7-832E-4BC7-A71B-26ABD98C993D}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {F7EC4955-707E-4BFC-9552-B35AAA2BFDC0}
+	EndGlobalSection
+EndGlobal
