@@ -32,7 +32,7 @@ namespace Cursed_Auto_Decryptor
         {
             System.Console.Title = "Cursed-Auto-Constants-Decryptor";
             if (Arguments.Length == 1) { ModulePath = Arguments[0]; }
-            if (Arguments.Length == 0) { System.Console.Write("[+] Path : "); ModulePath = System.Console.ReadLine(); }
+            if (Arguments.Length == 0) { System.Console.Write("[+] Path : "); ModulePath = System.Console.ReadLine().Replace("\"", ""); }
             Module = ModuleDefMD.Load(ModulePath);
             Ass = Assembly.UnsafeLoadFrom(ModulePath);
             Log = new LoggerConfiguration()
