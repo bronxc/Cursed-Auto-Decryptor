@@ -1,5 +1,5 @@
 # Cursed-Auto-Decryptor
 Cfex Auto Constants Decryptor
 
-# Not Compeleted ?
-Put Ur Imagination In The Algo :)
+# Who Its Works (Its Not Magik) ?
+Auto Collecting Params Used Then Invoke
