@@ -1,9 +1,14 @@
-﻿using dnlib.DotNet;
+﻿
+#region Usings
+using dnlib.DotNet;
 using dnlib.DotNet.Emit;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
+using System.Reflection.Emit;
+using OpCodes = dnlib.DotNet.Emit.OpCodes;
+#endregion
 
 namespace Cursed_Auto_Decryptor
 {
@@ -21,26 +26,34 @@ namespace Cursed_Auto_Decryptor
             {
                 foreach (var MethodDef in TypeDef.Methods.Where(x => x.HasBody))
                 {
+                    MethodDef.Body.SimplifyBranches();
+                    MethodDef.Body.SimplifyMacros(MethodDef.Parameters);
                     IList<Instruction> IL = MethodDef.Body.Instructions.ToList();
                     for (int x = 0; x < IL.Count; x++)
                     {
                         if (IL[x].OpCode == OpCodes.Call &&
-                            IL[x].Operand.ToString().Contains("<System.String>")) // TODO : Add More Check For More Accuracy
+                            IL[x].Operand.ToString().Contains("<System.String>") &&
+                            IL[x].Operand is MethodSpec &&
+                            ((MethodSpec)IL[x].Operand).GenericInstMethodSig.GenericArguments.Count == 1) // TODO : Add More Check For More Accuracy
                         {
                             try
                             {
-                                int IndexIs = x;
+                                object Result = null;
                                 IMethod DecMethod = (IMethod)IL[x].Operand;
                                 var ParamsC = DecMethod.GetParams().Count;
-                                if (HaveAntiInvoke(DecMethod)) { Context.Log.Information("The Decryption Method Have AntiInvoke Please Remove Then Continue");Context.Log.Information("Don't Know How Check This : https://github.com/obfuscators-2019/AntiInvokeDetection"); Console.ReadKey(); Environment.Exit(0); }
-                                Context.Log.Information($"Detected Params : {ParamsC}");
-                                var ReturnedParams = ParseParams(IL, x, ParamsC, DecMethod);
-                                var Result = (string)((MethodInfo)Context.Ass.ManifestModule.ResolveMethod((int)DecMethod.MDToken.Raw)).Invoke(null, ReturnedParams);
-                                Context.Log.Information($"Resorted String : {Result}");
-                                IL[x] = OpCodes.Ldstr.ToInstruction(Result);
-                                foreach (var i in ToRemoveInst)
-                                    IL.Remove(i);
-                                MethodDef.Body = new CilBody(MethodDef.Body.InitLocals, IL, MethodDef.Body.ExceptionHandlers, MethodDef.Body.Variables);
+                                var ReturnedParams = ParseParams(IL, Context, DecMethod, x);
+                                if (DecMethod.ResolveMethodDef().Body.Instructions.Any<Instruction>(i => i.ToString().Contains("StackTrace") || i.ToString().Contains("GetCallingAssembly")))
+                                    Result = InvokeAsDynamic(Context.Ass.ManifestModule, MethodDef, DecMethod.ResolveMethodDef(), ReturnedParams);
+                                else
+                                    Result = ((MethodInfo)Context.Ass.ManifestModule.ResolveMethod((int)DecMethod.MDToken.Raw)).Invoke(null, ReturnedParams);
+                                Context.Log.Information($"Resorted String : {Result.ToString()}");
+                                var _ldstr = OpCodes.Ldstr.ToInstruction(Result.ToString());
+                                IL[x].OpCode = _ldstr.OpCode;
+                                IL[x].Operand = _ldstr.Operand;
+                                foreach (var i in ToRemoveInst) {
+                                    i.OpCode = OpCodes.Nop;
+                                    i.Operand = null;
+                                }
                             }
                             catch (Exception e)
                             {
@@ -48,36 +61,102 @@ namespace Cursed_Auto_Decryptor
                             }
                         }
                     }
+                    MethodDef.Body.OptimizeBranches();
+                    MethodDef.Body.OptimizeMacros();
                 }
             }
         }
-        public object[] ParseParams(IList<Instruction> IL, int x, int Count, IMethod DecMethod)
+        public object[] ParseParams(IList<Instruction> IL,
+                                    Context _ctx,
+                                    IMethod DecMethod,
+                                    int Index)
         {
-            int lol = -0; // lmk if their a better solution 🙂
-            int lel = 0;
-            object[] ParsedParams = new object[Count];
-            for (int i = -Count + x; i < x; i++) {
-                if (lol == -0) {
-                    if (IL[i].IsLdcI4()) {
-                        ParsedParams[lol++] = Convert.ChangeType(unchecked((uint)IL[i].GetLdcI4Value()), Type.GetType(DecMethod.GetParams()[lel++].GetFullName()));
-                    }
-                    else {
-                        ParsedParams[lol++] = Convert.ChangeType(IL[i].Operand, Type.GetType(DecMethod.GetParams()[lel++].GetFullName()));
-                    }
-                }
-                else {
-                    try { ParsedParams[lol++] = Activator.CreateInstance(Type.GetType(DecMethod.GetParams()[lel++].GetFullName())); }
-                    catch { lel--; lol--; ParsedParams[lol++] = Convert.ChangeType(0, Type.GetType(DecMethod.GetParams()[lel++].GetFullName())); }
-                }
-                ToRemoveInst.Add(IL[i]);
+            var pi = 0;
+
+            var pp = 0;
+
+            var rMethod = _ctx.Ass.ManifestModule.ResolveMethod(DecMethod.MDToken.ToInt32());
+
+            var rMethodParams = rMethod.GetParameters();
+
+            var C = rMethodParams.Length;
+
+            var Parsed = new object[C];
+
+            for (int x = (-C + Index); x < Index; x++)
+            {
+                object Result = null;
+
+                if (IL[x].OpCode == OpCodes.Stsfld || IL[x].OpCode == OpCodes.Ldsfld)
+                    Result = _ctx.Ass.ManifestModule.ResolveField(((IField)IL[x].Operand).MDToken.ToInt32()).GetValue(null);
+
+                var CurrentT = rMethodParams[pi++].ParameterType;
+
+
+                if (CurrentT == typeof(String) || CurrentT == typeof(string))
+                    Result = (string)IL[x].Operand;
+                else if (CurrentT == typeof(Int16) || CurrentT == typeof(short))
+                    Result = Result == null ? (short)IL[x].GetLdcI4Value() : (short)Result;
+                else if (CurrentT == typeof(Int32) || CurrentT == typeof(int))
+                    Result = Result == null ? (int)IL[x].GetLdcI4Value() : (int)Result;
+                else if (CurrentT == typeof(Int64) || CurrentT == typeof(long))
+                    Result = Result == null ? (long)IL[x].GetLdcI4Value() : (long)Result;
+                else if (CurrentT == typeof(SByte) || CurrentT == typeof(sbyte))
+                    Result = Result == null ? (sbyte)IL[x].Operand : (sbyte)Result;
+                else if (CurrentT == typeof(Byte) || CurrentT == typeof(byte))
+                    Result = Result == null ? (byte)IL[x].Operand : (byte)Result;
+                else if (CurrentT == typeof(UInt16) || CurrentT == typeof(ushort))
+                    Result = Result == null ? (ushort)unchecked(IL[x].GetLdcI4Value()) : (ushort)Result;
+                else if (CurrentT == typeof(UInt32) || CurrentT == typeof(uint))
+                    Result = Result == null ? (uint)unchecked(IL[x].GetLdcI4Value()) : (uint)Result;
+                else if (CurrentT == typeof(UInt64) || CurrentT == typeof(ulong))
+                    Result = Result == null ? (ulong)unchecked(IL[x].GetLdcI4Value()) : (ulong)Result;
+                else if (CurrentT == typeof(Boolean) || CurrentT == typeof(bool))
+                    Result = Result == null ? (IL[x].GetLdcI4Value() == 1 ? true : false) : Convert.ToBoolean(Result);
+                else if (CurrentT == typeof(Char) || CurrentT == typeof(char))
+                    Result = Result == null ? Convert.ToChar(IL[x].GetLdcI4Value()) : (char)Result;
+                else
+                    Result = Result == null ? Convert.ChangeType(IL[x].Operand, CurrentT) : Convert.ChangeType(Result, CurrentT);
+
+                Parsed[pp++] = Result;
+
+                ToRemoveInst.Add(IL[x]);
+
             }
-            return ParsedParams;
+
+            return Parsed;
         }
-        public bool HaveAntiInvoke(IMethod DecMethod)
+
+        public object InvokeAsDynamic(Module Module,
+                                      MethodDef CMethod,
+                                      MethodDef DecMethod,
+                                      object[] Params)
         {
-            foreach (var x in DecMethod.ResolveMethodDef().Body.Instructions)
-                if (x.OpCode == OpCodes.Call && x.Operand.ToString().Contains("GetCallingAssembly")) { return true; }
-            return false;
+            // Semi Bypass Any AntiInvoking Technique (StackTrace, GetCallingAssembly, etc.)
+
+            var rMethod = Module.ResolveMethod(DecMethod.MDToken.ToInt32(),
+                            null,
+                            new Type[1] { typeof(string) });
+
+            var rType = typeof(string);
+
+            var pT = new List<Type>();
+
+            foreach (var x in rMethod.GetParameters())
+                pT.Add(x.ParameterType);
+
+            var dMethod = new DynamicMethod(CMethod.Name, rType, pT.ToArray(), Module, true);
+
+            var ILGen = dMethod.GetILGenerator();
+
+            for (int i = 0; i < Params.Length; i++)
+                ILGen.Emit(System.Reflection.Emit.OpCodes.Ldarg, i);
+
+            ILGen.Emit(System.Reflection.Emit.OpCodes.Call, ((MethodInfo)rMethod).MakeGenericMethod(new[] { typeof(string) }));
+
+            ILGen.Emit(System.Reflection.Emit.OpCodes.Ret);
+
+            return dMethod.Invoke(null, Params);
         }
     }
 }

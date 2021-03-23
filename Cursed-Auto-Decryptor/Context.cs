@@ -30,9 +30,23 @@ namespace Cursed_Auto_Decryptor
         /// <param name="Arguments">Args Contains Module Location</param>
         public Context(string[] Arguments)
         {
-            System.Console.Title = "Cursed-Auto-Constants-Decryptor";
+            System.Console.Title = "Cursed-Auto-Constants-Decryptor-v2.0";
             if (Arguments.Length == 1) { ModulePath = Arguments[0]; }
-            if (Arguments.Length == 0) { System.Console.Write("[+] Path : "); ModulePath = System.Console.ReadLine().Replace("\"", ""); }
+            if (Arguments.Length == 0) { System.Console.Write("[+] Path : "); ModulePath = System.Console.ReadLine().Replace("\"", ""); System.Console.Clear(); }
+            System.Console.ForegroundColor = System.ConsoleColor.Red;
+            System.Console.WriteLine(@"
+
+
+                  _____                    __  ___                        __          
+                 / ___/_ _________ ___ ___/ / / _ \___ __________ _____  / /____  ____
+                / /__/ // / __(_-</ -_) _  / / // / -_) __/ __/ // / _ \/ __/ _ \/ __/
+                \___/\_,_/_/ /___/\__/\_,_/ /____/\__/\__/_/  \_, / .__/\__/\___/_/   
+                                                             /___/_/                  
+
+
+");
+            System.Console.SetWindowSize(102, 22);
+            System.Console.SetBufferSize(102, 9001);
             Module = ModuleDefMD.Load(ModulePath);
             Ass = Assembly.UnsafeLoadFrom(ModulePath);
             Log = new LoggerConfiguration()
